@@ -1,0 +1,82 @@
+ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('embed')
+    .setDescription('Create a custom embed')
+    .addStringOption(option =>
+      option.setName('title')
+        .setDescription('Embed title')
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option.setName('description')
+        .setDescription('Embed description')
+        .setRequired(false)
+    )
+    .addStringOption(option =>
+      option.setName('color')
+        .setDescription('Embed color (hex code without #, e.g., ff0000)')
+        .setRequired(false)
+    )
+    .addChannelOption(option =>
+      option.setName('channel')
+        .setDescription('Optional: Channel to send the embed in')
+        .setRequired(false)
+    ),
+
+  async execute(interaction) {
+    // Role IDs from .env
+    const SUPERVISOR_ROLE_ID = process.env.SUPERVISOR_ROLE_ID;
+    const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
+    const HIGHERUPS_ROLE_ID = process.env.HIGHERUPS_ROLE_ID;
+    const MANAGER_ROLE_ID = process.env.MANAGER_ROLE_ID;
+
+    const member = interaction.member;
+
+    // Check if the member has at least one of the allowed roles
+    const allowedRoles = [SUPERVISOR_ROLE_ID, ADMIN_ROLE_ID, HIGHERUPS_ROLE_ID, MANAGER_ROLE_ID];
+    const hasRole = allowedRoles.some(roleId => member.roles.cache.has(roleId));
+
+    if (!hasRole) {
+      return interaction.reply({
+        content: "You don't have permission to use this command.",
+        ephemeral: true
+      });
+    }
+
+    const title = interaction.options.getString('title');
+    const description = interaction.options.getString('description');
+    const color = interaction.options.getString('color') || 'FFFFFF';
+    const targetChannel = interaction.options.getChannel('channel') || interaction.channel;
+
+    if (!targetChannel.isTextBased()) {
+      return interaction.reply({
+        content: "I can't send embeds in that channel.",
+        ephemeral: true
+      });
+    }
+
+    try {
+      const embed = new EmbedBuilder()
+        .setColor(`#${color}`)
+        .setTimestamp();
+
+      if (title) embed.setTitle(title);
+      if (description) embed.setDescription(description);
+
+      await targetChannel.send({ embeds: [embed] });
+
+      await interaction.reply({
+        content: `Embed sent${targetChannel.id !== interaction.channel.id ? ` in ${targetChannel}` : ''}!`,
+        ephemeral: true
+      });
+    } catch (err) {
+      console.error('Error sending embed:', err);
+      await interaction.reply({
+        content: "Failed to send the embed. Make sure the color is a valid hex code.",
+        ephemeral: true
+      });
+    }
+  }
+};
